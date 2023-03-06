@@ -10,7 +10,7 @@ protected:
     typedef unsigned int reg_32;
     typedef unsigned long long reg_64;
     const static reg_32 hash_keys[];
-    static const unsigned int BLOCK_SIZE_256 = (512/8);
+    static const unsigned int BlockSize256 = (512/8);
 public:
     void s_reg();
     void adj_digest(const unsigned char *text, unsigned int text_length);
@@ -21,29 +21,29 @@ protected:
     void compress(const unsigned char *message, unsigned int block_new);
     unsigned int totalLength;
     unsigned int sLength;
-    unsigned char sBlock[2*BLOCK_SIZE_256];
-    reg_32 s_r[8];
+    unsigned char sBlock[2*BlockSize256];
+    reg_32 st_r[8];
 };
 
 std::string sha256(std::string input);
 
-#define SHFT_RIGHT(x, n)      (x >> n)
+#define SHIFT_RIGHT(x, n)      (x >> n)
 #define ROTATE_RIGHT(x, n)   ((x >> n) | (x << ((sizeof(x) << 3) - n)))
 #define ROTATE_LEFT(x, n)   ((x << n) | (x >> ((sizeof(x) << 3) - n)))
-#define CHOICE_OF(x, y, z)  ((x & y) ^ (~x & z))
-#define MAJORITY_OF(x, y, z) ((x & y) ^ (x & z) ^ (y & z)) 
-#define SHAF_1(x) (ROTATE_RIGHT(x,  2) ^ ROTATE_RIGHT(x, 13) ^ ROTATE_RIGHT(x, 22))
-#define SHAF_2(x) (ROTATE_RIGHT(x,  6) ^ ROTATE_RIGHT(x, 11) ^ ROTATE_RIGHT(x, 25))
-#define SHAF_3(x) (ROTATE_RIGHT(x,  7) ^ ROTATE_RIGHT(x, 18) ^ SHFT_RIGHT(x,  3))
-#define SHAF_4(x) (ROTATE_RIGHT(x, 17) ^ ROTATE_RIGHT(x, 19) ^ SHFT_RIGHT(x, 10))
-#define SHAF_U32(x, str)                 \
+#define CHOICE(x, y, z)  ((x & y) ^ (~x & z))
+#define MAJORITY(x, y, z) ((x & y) ^ (x & z) ^ (y & z)) 
+#define S_1(x) (ROTATE_RIGHT(x,  2) ^ ROTATE_RIGHT(x, 13) ^ ROTATE_RIGHT(x, 22))
+#define S_2(x) (ROTATE_RIGHT(x,  6) ^ ROTATE_RIGHT(x, 11) ^ ROTATE_RIGHT(x, 25))
+#define S_3(x) (ROTATE_RIGHT(x,  7) ^ ROTATE_RIGHT(x, 18) ^ SHIFT_RIGHT(x,  3))
+#define S_4(x) (ROTATE_RIGHT(x, 17) ^ ROTATE_RIGHT(x, 19) ^ SHIFT_RIGHT(x, 10))
+#define S_U32(x, str)                 \
 {                                             \
     *((str) + 3) = (reg_8) ((x)      );       \
     *((str) + 2) = (reg_8) ((x) >>  8);       \
     *((str) + 1) = (reg_8) ((x) >> 16);       \
     *((str) + 0) = (reg_8) ((x) >> 24);       \
 }
-#define SHAF_32(str, x)                   \
+#define S_32(str, x)                   \
 {                                             \
     *(x) =   ((reg_32) *((str) + 3)      )    \
            | ((reg_32) *((str) + 2) <<  8)    \
@@ -85,18 +85,18 @@ void sha256_hash_function::compress(const unsigned char *message, unsigned int b
     for (a = 0; a < (int) block_new; a++) {
         block_s = message + (a << 6);
         for (b = 0; b < 16; b++) {
-            SHAF_32(&block_s[b << 2], &w[b]);
+            S_32(&block_s[b << 2], &w[b]);
         }
         for (b = 16; b < 64; b++) {
-            w[b] =  SHAF_4(w[b -  2]) + w[b -  7] + SHAF_3(w[b - 15]) + w[b - 16];
+            w[b] =  S_4(w[b -  2]) + w[b -  7] + S_3(w[b - 15]) + w[b - 16];
         }
         for (b = 0; b < 8; b++) {
-            buffer[b] = s_r[b];
+            buffer[b] = st_r[b];
         }
         for (b = 0; b < 64; b++) {
-            t1 = buffer[7] + SHAF_2(buffer[4]) + CHOICE_OF(buffer[4], buffer[5], buffer[6])
+            t1 = buffer[7] + S_2(buffer[4]) + CHOICE(buffer[4], buffer[5], buffer[6])
                 + hash_keys[b] + w[b];
-            t2 = SHAF_1(buffer[0]) + MAJORITY_OF(buffer[0], buffer[1], buffer[2]);
+            t2 = S_1(buffer[0]) + MAJORITY(buffer[0], buffer[1], buffer[2]);
             buffer[7] = buffer[6];
             buffer[6] = buffer[5];
             buffer[5] = buffer[4];
@@ -107,43 +107,43 @@ void sha256_hash_function::compress(const unsigned char *message, unsigned int b
             buffer[0] = t1 + t2;
         }
         for (b = 0; b < 8; b++) {
-            s_r[b] += buffer[b];
+            st_r[b] += buffer[b];
         }
     }
 }
 
 void sha256_hash_function::s_reg()
 {
-    s_r[0] = 0x6a09e667;
-    s_r[1] = 0xbb67ae85;
-    s_r[2] = 0x3c6ef372;
-    s_r[3] = 0xa54ff53a;
-    s_r[4] = 0x510e527f;
-    s_r[5] = 0x9b05688c;
-    s_r[6] = 0x1f83d9ab;
-    s_r[7] = 0x5be0cd19;
+    st_r[0] = 0x6a09e667;
+    st_r[1] = 0xbb67ae85;
+    st_r[2] = 0x3c6ef372;
+    st_r[3] = 0xa54ff53a;
+    st_r[4] = 0x510e527f;
+    st_r[5] = 0x9b05688c;
+    st_r[6] = 0x1f83d9ab;
+    st_r[7] = 0x5be0cd19;
     sLength = 0;
     totalLength = 0;
 }
-//add compressed value to current value
+//add to current value
 void sha256_hash_function::adj_digest(const unsigned char *text, unsigned int text_length)
 {
     unsigned int block_new;
     unsigned int newLength, remLength, tmpLength;
     const unsigned char *msg;
-    tmpLength = BLOCK_SIZE_256 - sLength;
+    tmpLength = BlockSize256 - sLength;
     remLength = text_length < tmpLength ? text_length : tmpLength;
     memcpy(&sBlock[sLength], text, remLength);
-    if (sLength + text_length < BLOCK_SIZE_256) {
+    if (sLength + text_length < BlockSize256) {
         sLength += text_length;
         return;
     }
     newLength = text_length - remLength;
-    block_new = newLength / BLOCK_SIZE_256;
+    block_new = newLength / BlockSize256;
     msg = text + remLength;
     compress(sBlock, 1);
     compress(msg, block_new);
-    remLength = newLength % BLOCK_SIZE_256;
+    remLength = newLength % BlockSize256;
     memcpy(sBlock, &msg[block_new << 6], remLength);
     sLength = remLength;
     totalLength += (block_new + 1) << 6;
@@ -156,20 +156,20 @@ void sha256_hash_function::final_dig(unsigned char *digest)
     unsigned int pm_length;
     unsigned int length_of_b;
     int s;
-    block_new = (1 + ((BLOCK_SIZE_256 - 9)
-                     < (sLength % BLOCK_SIZE_256)));
+    block_new = (1 + ((BlockSize256 - 9)
+                     < (sLength % BlockSize256)));
     length_of_b = (totalLength + sLength) << 3;
     pm_length = block_new << 6;
     memset(sBlock + sLength, 0, pm_length - sLength);
     sBlock[sLength] = 0x80;
-    SHAF_U32(length_of_b, sBlock + pm_length - 4);
+    S_U32(length_of_b, sBlock + pm_length - 4);
     compress(sBlock, block_new);
     for (s = 0 ; s < 8; s++) {
-        SHAF_U32(s_r[s], &digest[s << 2]);
+        S_U32(st_r[s], &digest[s << 2]);
     }
 }
 
-//main function
+// main
 std::string sha256(std::string input)
 {
     unsigned char digest[sha256_hash_function::PAD_SIZE];
